@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oregon Cities Blog Post Tracker</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f5f5f5;
+    color: #1a1a1a;
+    padding: 16px;
+    font-size: 14px;
+  }
+  header { margin-bottom: 14px; }
+  header h1 { font-size: 17px; font-weight: 700; color: #111; }
+  header p { font-size: 12px; color: #666; margin-top: 3px; }
+
+  .stats {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 8px 14px;
+    text-align: center;
+    min-width: 80px;
+  }
+  .stat .num { font-size: 22px; font-weight: 700; color: #111; }
+  .stat.done .num { color: #16a34a; }
+  .stat.pending .num { color: #d97706; }
+  .stat .label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  .progress-wrap {
+    background: #e5e7eb;
+    border-radius: 99px;
+    height: 7px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #16a34a;
+    border-radius: 99px;
+    transition: width 0.3s ease;
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .controls input {
+    flex: 1;
+    min-width: 160px;
+    padding: 7px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+  }
+  .controls input:focus { outline: 2px solid #16a34a; border-color: transparent; }
+
+  .filter-btns { display: flex; gap: 6px; }
+  .filter-btns button {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    color: #555;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .filter-btns button.active {
+    background: #111;
+    color: #fff;
+    border-color: #111;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+  }
+  thead th {
+    background: #f9fafb;
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  tbody tr {
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.1s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafafa; }
+  tbody tr.is-done { opacity: 0.6; }
+  td { padding: 8px 12px; vertical-align: middle; }
+
+  td.num-col { color: #aaa; font-size: 12px; width: 40px; }
+  td.city-col { font-weight: 500; }
+  td.file-col { font-size: 12px; }
+  td.file-col a {
+    color: #2563eb;
+    text-decoration: none;
+    font-family: monospace;
+    font-size: 12px;
+  }
+  td.file-col a:hover { text-decoration: underline; }
+  td.file-col .no-file { color: #aaa; font-style: italic; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .status-badge.published { background: #dcfce7; color: #15803d; }
+  .status-badge.pending { background: #fef3c7; color: #92400e; }
+  .status-badge.pre { background: #f3f4f6; color: #9ca3af; }
+
+  .toggle-btn {
+    padding: 4px 10px;
+    border-radius: 5px;
+    border: 1px solid;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .toggle-btn.mark-done {
+    background: #fff;
+    border-color: #16a34a;
+    color: #16a34a;
+  }
+  .toggle-btn.mark-done:hover { background: #16a34a; color: #fff; }
+  .toggle-btn.mark-undone {
+    background: #fff;
+    border-color: #d1d5db;
+    color: #9ca3af;
+  }
+  .toggle-btn.mark-undone:hover { background: #f3f4f6; }
+
+  .empty { text-align: center; padding: 40px; color: #999; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Oregon Cities — Blog Post Tracker</h1>
+  <p>Ducker Creative SEO Blog Posts</p>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="num" id="stat-total">0</div><div class="label">Total</div></div>
+  <div class="stat done"><div class="num" id="stat-done">0</div><div class="label">Published</div></div>
+  <div class="stat pending"><div class="num" id="stat-pending">0</div><div class="label">Pending</div></div>
+  <div class="stat"><div class="num" id="stat-pct">0%</div><div class="label">Complete</div></div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+</div>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="Search cities…" oninput="renderTable()">
+  <div class="filter-btns">
+    <button class="active" onclick="setFilter('all',this)">All</button>
+    <button onclick="setFilter('pending',this)">Pending</button>
+    <button onclick="setFilter('published',this)">Published</button>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>City</th>
+      <th>Status</th>
+      <th>Blog Post File</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody id="table-body"></tbody>
+</table>
+
+<script>
+// Relative path from this file to the HTML blog posts
+const HTML_DIR = "Ducker Creative - SEO-20260528T204307Z-3-001/Ducker Creative - SEO/";
+
+const CITIES = [
+  {num:1,  city:"Canyon City",    file:null,                     prePublished:true},
+  {num:2,  city:"Yamhill",        file:null,                     prePublished:true},
+  {num:3,  city:"Gaston",         file:null,                     prePublished:true},
+  {num:4,  city:"Weston",         file:null,                     prePublished:true},
+  {num:5,  city:"Powers",         file:null,                     prePublished:true},
+  {num:6,  city:"Condon",         file:null,                     prePublished:true},
+  {num:7,  city:"Malin",          file:null,                     prePublished:true},
+  {num:8,  city:"Chiloquin",      file:null,                     prePublished:true},
+  {num:9,  city:"Wallowa",        file:null,                     prePublished:true},
+  {num:10, city:"Merrill",        file:null,                     prePublished:true},
+  {num:11, city:"Maywood Park",   file:null,                     prePublished:true},
+  {num:12, city:"Garibaldi",      file:null,                     prePublished:true},
+  {num:13, city:"Prairie City",   file:null,                     prePublished:true},
+  {num:14, city:"Glendale",       file:null,                     prePublished:true},
+  {num:15, city:"Oakland",        file:null,                     prePublished:true},
+  {num:16, city:"Scio",           file:"scio-blog-post.html",    prePublished:true},
+  {num:17, city:"Halsey",         file:"halsey.html",            prePublished:false},
+  {num:18, city:"Metolius",       file:"metolius.html",          prePublished:false},
+  {num:19, city:"Yachats",        file:"yachats.html",           prePublished:false},
+  {num:20, city:"Adair Village",  file:"adair-village.html",     prePublished:false},
+  {num:21, city:"Donald",         file:"donald.html",            prePublished:false},
+  {num:22, city:"Yoncalla",       file:"yoncalla.html",          prePublished:false},
+  {num:23, city:"Falls City",     file:"falls-city.html",        prePublished:false},
+  {num:24, city:"Aurora",         file:"aurora.html",            prePublished:false},
+  {num:25, city:"Island City",    file:"island-city.html",       prePublished:false},
+  {num:26, city:"Port Orford",    file:"port-orford.html",       prePublished:false},
+  {num:27, city:"Joseph",         file:"joseph.html",            prePublished:false},
+  {num:28, city:"Drain",          file:"drain.html",             prePublished:false},
+  {num:29, city:"Heppner",        file:"heppner.html",           prePublished:false},
+  {num:30, city:"Lowell",         file:"lowell.html",            prePublished:false},
+  {num:31, city:"Lyons",          file:"lyons.html",             prePublished:false},
+  {num:32, city:"Athena",         file:"athena.html",            prePublished:false},
+  {num:33, city:"Riddle",         file:"riddle.html",            prePublished:false},
+  {num:34, city:"Siletz",         file:"siletz.html",            prePublished:false},
+  {num:35, city:"Tangent",        file:"tangent.html",           prePublished:false},
+  {num:36, city:"Coburg",         file:"coburg.html",            prePublished:false},
+  {num:37, city:"Pilot Rock",     file:"pilot-rock.html",        prePublished:false},
+  {num:38, city:"Gold Hill",      file:"gold-hill.html",         prePublished:false},
+  {num:39, city:"Cascade Locks",  file:"cascade-locks.html",     prePublished:false},
+  {num:40, city:"Bay City",       file:"bay-city.html",          prePublished:false},
+  {num:41, city:"Dunes City",     file:"dunes-city.html",        prePublished:false},
+  {num:42, city:"Rockaway Beach", file:"rockaway-beach.html",    prePublished:false},
+  {num:43, city:"Cannon Beach",   file:"cannon-beach.html",      prePublished:false},
+  {num:44, city:"Depoe Bay",      file:"depoe-bay.html",         prePublished:false},
+  {num:45, city:"Culver",         file:"culver.html",            prePublished:false},
+  {num:46, city:"Canyonville",    file:"canyonville.html",       prePublished:false},
+  {num:47, city:"Hines",          file:"hines.html",             prePublished:false},
+  {num:48, city:"John Day",       file:"john-day.html",          prePublished:false},
+  {num:49, city:"Brownsville",    file:"brownsville.html",       prePublished:false},
+  {num:50, city:"Clatskanie",     file:"clatskanie.html",        prePublished:false},
+  {num:51, city:"Elgin",          file:"elgin.html",             prePublished:false},
+  {num:52, city:"Amity",          file:"amity.html",             prePublished:false},
+  {num:53, city:"Gearhart",       file:"gearhart.html",          prePublished:false},
+  {num:54, city:"Banks",          file:"banks.html",             prePublished:false},
+  {num:55, city:"Vale",           file:"vale.html",              prePublished:false},
+  {num:56, city:"Lakeside",       file:"lakeside.html",          prePublished:false},
+  {num:57, city:"Rainier",        file:"rainier.html",           prePublished:false},
+  {num:58, city:"Durham",         file:"durham.html",            prePublished:false},
+  {num:59, city:"Columbia City",  file:"columbia-city.html",     prePublished:false},
+  {num:60, city:"Linn",           file:"linn.html",              prePublished:false},
+  {num:61, city:"Mill City",      file:"mill-city.html",         prePublished:false},
+  {num:62, city:"Irrigon",        file:"irrigon.html",           prePublished:false},
+  {num:63, city:"Enterprise",     file:"enterprise.html",        prePublished:false},
+  {num:64, city:"Cave Junction",  file:"cave-junction.html",     prePublished:false},
+  {num:65, city:"Stanfield",      file:"stanfield.html",         prePublished:false},
+  {num:66, city:"Union",          file:"union.html",             prePublished:false},
+  {num:67, city:"Carlton",        file:"carlton.html",           prePublished:false},
+  {num:68, city:"Polk",           file:"polk.html",              prePublished:false},
+  {num:69, city:"Willamina",      file:"willamina.html",         prePublished:false},
+  {num:70, city:"Waldport",       file:"waldport.html",          prePublished:false},
+  {num:71, city:"Gold Beach",     file:"gold-beach.html",        prePublished:false},
+  {num:72, city:"Vernonia",       file:"vernonia.html",          prePublished:false},
+  {num:73, city:"Rogue River",    file:"rogue-river.html",       prePublished:false},
+  {num:74, city:"Lakeview",       file:"lakeview.html",          prePublished:false},
+  {num:75, city:"Turner",         file:"turner.html",            prePublished:false},
+  {num:76, city:"Myrtle Point",   file:"myrtle-point.html",      prePublished:false},
+  {num:77, city:"La Pine",        file:"la-pine.html",           prePublished:false},
+  {num:78, city:"Gervais",        file:"gervais.html",           prePublished:false},
+  {num:79, city:"Dayton",         file:"dayton.html",            prePublished:false},
+  {num:80, city:"Burns",          file:"burns.html",             prePublished:false},
+  {num:81, city:"Sublimity",      file:"sublimity.html",         prePublished:false},
+  {num:82, city:"Jacksonville",   file:"jacksonville.html",      prePublished:false},
+  {num:83, city:"Sisters",        file:"sisters.html",           prePublished:false},
+  {num:84, city:"Shady Cove",     file:"shady-cove.html",        prePublished:false},
+  {num:85, city:"Nyssa",          file:"nyssa.html",             prePublished:false},
+  {num:86, city:"Oakridge",       file:"oakridge.html",          prePublished:false},
+  {num:87, city:"Dundee",         file:"dundee.html",            prePublished:false},
+  {num:88, city:"Bandon",         file:"bandon.html",            prePublished:false},
+  {num:89, city:"Jefferson",      file:"jefferson.html",         prePublished:false},
+  {num:90, city:"Mt Angel",       file:"mt-angel.html",          prePublished:false},
+  {num:91, city:"Hubbard",        file:"hubbard.html",           prePublished:false},
+  {num:92, city:"North Plains",   file:"north-plains.html",      prePublished:false},
+  {num:93, city:"Myrtle Creek",   file:"myrtle-creek.html",      prePublished:false},
+  {num:94, city:"Toledo",         file:"toledo.html",            prePublished:false},
+  {num:95, city:"Harrisburg",     file:"harrisburg.html",        prePublished:false},
+  {num:96, city:"Boardman",       file:"boardman.html",          prePublished:false},
+  {num:97, city:"Coquille",       file:"coquille.html",          prePublished:false},
+  {num:98, city:"Aumsville",      file:"aumsville.html",         prePublished:false},
+  {num:99, city:"Reedsport",      file:"reedsport.html",         prePublished:false},
+  {num:100,city:"Estacada",       file:"estacada.html",          prePublished:false},
+  {num:101,city:"Wood Village",   file:"wood-village.html",      prePublished:false},
+  {num:102,city:"Lafayette",      file:"lafayette.html",         prePublished:false},
+  {num:103,city:"Phoenix",        file:"phoenix.html",           prePublished:false},
+  {num:104,city:"King City",      file:"king-city.html",         prePublished:false},
+  {num:105,city:"Tillamook",      file:"tillamook.html",         prePublished:false},
+  {num:106,city:"Veneta",         file:null,                     prePublished:true},
+  {num:107,city:"Philomath",      file:null,                     prePublished:true},
+  {num:108,city:"Winston",        file:null,                     prePublished:true},
+  {num:109,city:"Creswell",       file:null,                     prePublished:true},
+  {num:110,city:"Sheridan",       file:null,                     prePublished:true},
+  {num:111,city:"Warrenton",      file:null,                     prePublished:true},
+  {num:112,city:"Talent",         file:"talent.html",            prePublished:false},
+  {num:113,city:"Brookings",      file:"brookings.html",         prePublished:false},
+  {num:114,city:"Junction City",  file:"junction-city.html",     prePublished:false},
+  {num:115,city:"Seaside",        file:"seaside.html",           prePublished:false},
+  {num:116,city:"Milton-Freewater",file:"milton-freewater.html", prePublished:false},
+  {num:117,city:"Umatilla",       file:"umatilla.html",          prePublished:false},
+  {num:118,city:"Madras",         file:"madras.html",            prePublished:false},
+  {num:119,city:"Scappoose",      file:"scappoose.html",         prePublished:false},
+  {num:120,city:"Stayton",        file:"stayton.html",           prePublished:false},
+  {num:121,city:"Hood River",     file:"hood-river.html",        prePublished:false},
+  {num:122,city:"Sutherlin",      file:"sutherlin.html",         prePublished:false},
+  {num:123,city:"Florence",       file:"florence.html",          prePublished:false},
+  {num:124,city:"Eagle Point",    file:"eagle-point.html",       prePublished:false},
+  {num:125,city:"Lincoln City",   file:"lincoln-city.html",      prePublished:false},
+  {num:126,city:"Independence",   file:"independence.html",      prePublished:false},
+  {num:127,city:"Sweet Home",     file:"sweet-home.html",        prePublished:false},
+  {num:128,city:"Baker City",     file:"baker-city.html",        prePublished:false},
+  {num:129,city:"Astoria",        file:"astoria.html",           prePublished:false},
+  {num:130,city:"Molalla",        file:"molalla.html",           prePublished:false},
+  {num:131,city:"Newport",        file:"newport.html",           prePublished:false},
+  {num:132,city:"North Bend",     file:"north-bend.html",        prePublished:false},
+  {num:133,city:"Fairview",       file:"fairview.html",          prePublished:false},
+  {num:134,city:"Silverton",      file:"silverton.html",         prePublished:false},
+  {num:135,city:"Cottage Grove",  file:"cottage-grove.html",     prePublished:false},
+  {num:136,city:"Prineville",     file:"prineville.html",        prePublished:false},
+  {num:137,city:"Monmouth",       file:"monmouth.html",          prePublished:false},
+  {num:138,city:"Ontario",        file:"ontario.html",           prePublished:false},
+  {num:139,city:"Gladstone",      file:"gladstone.html",         prePublished:false},
+  {num:140,city:"Sandy",          file:"sandy.html",             prePublished:false},
+  {num:141,city:"Cornelius",      file:"cornelius.html",         prePublished:false},
+  {num:142,city:"La Grande",      file:"la-grande.html",         prePublished:false},
+  {num:143,city:"St Helens",      file:"st-helens.html",         prePublished:false},
+  {num:144,city:"Coos Bay",       file:"coos-bay.html",          prePublished:false},
+  {num:145,city:"The Dalles",     file:"the-dalles.html",        prePublished:false},
+  {num:146,city:"Troutdale",      file:"troutdale.html",         prePublished:false},
+  {num:147,city:"Dallas",         file:"dallas.html",            prePublished:false},
+  {num:148,city:"Pendleton",      file:"pendleton.html",         prePublished:false},
+  {num:149,city:"Canby",          file:"canby.html",             prePublished:false},
+  {num:150,city:"Lebanon",        file:"lebanon.html",           prePublished:false},
+  {num:151,city:"Central Point",  file:"central-point.html",     prePublished:false},
+  {num:152,city:"Hermiston",      file:"hermiston.html",         prePublished:false},
+  {num:153,city:"Sherwood",       file:"sherwood.html",          prePublished:false},
+  {num:154,city:"Multnomah",      file:"multnomah.html",         prePublished:false},
+  {num:155,city:"Milwaukie",      file:"milwaukie.html",         prePublished:false},
+  {num:156,city:"Ashland",        file:"ashland.html",           prePublished:false},
+  {num:157,city:"Klamath Falls",  file:"klamath-falls.html",     prePublished:false},
+  {num:158,city:"Roseburg",       file:"roseburg.html",          prePublished:false},
+  {num:159,city:"Happy Valley",   file:"happy-valley.html",      prePublished:false},
+  {num:160,city:"Newberg",        file:"newberg.html",           prePublished:false},
+  {num:161,city:"Woodburn",       file:"woodburn.html",          prePublished:false},
+  {num:162,city:"Forest Grove",   file:"forest-grove.html",      prePublished:false},
+  {num:163,city:"Washington",     file:"washington.html",        prePublished:false},
+  {num:164,city:"Wilsonville",    file:"wilsonville.html",       prePublished:false},
+  {num:165,city:"West Linn",      file:"west-linn.html",         prePublished:false},
+  {num:166,city:"Clackamas",      file:"clackamas.html",         prePublished:false},
+  {num:167,city:"Tualatin",       file:"tualatin.html",          prePublished:false},
+  {num:168,city:"Redmond",        file:"redmond.html",           prePublished:false},
+  {num:169,city:"McMinnville",    file:"mcminnville.html",       prePublished:false},
+  {num:170,city:"Oregon City",    file:"oregon-city.html",       prePublished:false},
+  {num:171,city:"Grants Pass",    file:"grants-pass.html",       prePublished:false},
+  {num:172,city:"Keizer",         file:"keizer.html",            prePublished:false},
+  {num:173,city:"Lake Oswego",    file:"lake-oswego.html",       prePublished:false},
+  {num:174,city:"Tigard",         file:"tigard.html",            prePublished:false},
+  {num:175,city:"Benton",         file:"benton.html",            prePublished:false},
+  {num:176,city:"Albany",         file:"albany.html",            prePublished:false},
+  {num:177,city:"Corvallis",      file:"corvallis.html",         prePublished:false},
+  {num:178,city:"Springfield",    file:"springfield.html",       prePublished:false},
+  {num:179,city:"Medford",        file:"medford.html",           prePublished:false},
+  {num:180,city:"Beaverton",      file:"beaverton.html",         prePublished:false},
+  {num:181,city:"Bend",           file:"bend.html",              prePublished:false},
+  {num:182,city:"Hillsboro",      file:"hillsboro.html",         prePublished:false},
+  {num:183,city:"Gresham",        file:"gresham.html",           prePublished:false},
+  {num:184,city:"Salem",          file:"salem.html",             prePublished:false},
+  {num:185,city:"Eugene",         file:"eugene.html",            prePublished:false},
+  {num:186,city:"Portland",       file:"portland.html",          prePublished:false},
+];
+
+const STORAGE_KEY = "dc_city_tracker_v1";
+let currentFilter = "all";
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveState(s) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {}
+}
+function isPublished(c, state) {
+  return c.prePublished || state[c.num] === true;
+}
+function toggle(num) {
+  const c = CITIES.find(x => x.num === num);
+  if (c.prePublished) return;
+  const s = loadState();
+  if (s[num]) delete s[num]; else s[num] = true;
+  saveState(s);
+  updateStats();
+  renderTable();
+}
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btns button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+function updateStats() {
+  const s = loadState();
+  const total = CITIES.length;
+  const done = CITIES.filter(c => isPublished(c, s)).length;
+  const pct = Math.round(done / total * 100);
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-done').textContent = done;
+  document.getElementById('stat-pending').textContent = total - done;
+  document.getElementById('stat-pct').textContent = pct + '%';
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+function renderTable() {
+  const s = loadState();
+  const q = document.getElementById('search').value.toLowerCase().trim();
+  const rows = CITIES.filter(c => {
+    const pub = isPublished(c, s);
+    if (currentFilter === 'published' && !pub) return false;
+    if (currentFilter === 'pending' && pub) return false;
+    if (q && !c.city.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const tbody = document.getElementById('table-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">No cities match.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(c => {
+    const pub = isPublished(c, s);
+    let fileCell = '<span class="no-file">—</span>';
+    if (c.file) {
+      fileCell = `<a href="${HTML_DIR}${c.file}">${c.file}</a>`;
+    }
+    let badge, action;
+    if (c.prePublished) {
+      badge = '<span class="status-badge pre">Already Published</span>';
+      action = '—';
+    } else if (pub) {
+      badge = '<span class="status-badge published">✓ Published</span>';
+      action = `<button class="toggle-btn mark-undone" onclick="toggle(${c.num})">Undo</button>`;
+    } else {
+      badge = '<span class="status-badge pending">Pending</span>';
+      action = `<button class="toggle-btn mark-done" onclick="toggle(${c.num})">Mark Published</button>`;
+    }
+    return `<tr class="${pub?'is-done':''}">
+      <td class="num-col">${c.num}</td>
+      <td class="city-col">${c.city}</td>
+      <td>${badge}</td>
+      <td class="file-col">${fileCell}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+}
+
+updateStats();
+renderTable();
+</script>
+</body>
+</html>
